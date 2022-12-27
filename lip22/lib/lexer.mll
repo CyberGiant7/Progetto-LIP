@@ -15,6 +15,8 @@ rule read =
   | ")" { RPAREN }
   | "{" { LBRACE }
   | "}" { RBRACE }
+  | "[" { LBRACK }
+  | "]" { RBRACK }
   | "true" { TRUE }
   | "false" { FALSE }
   | "not" { NOT }
@@ -31,11 +33,14 @@ rule read =
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
-  | "while" { WHILE }
-  | "do" { DO }
-  | "fun" { FUN }
+  | "repeat" { REPEAT }
+  | "forever" { FOREVER }
   | "int" { INT }
-  | "return" { RETURN }
+  | "proc" { PROC }
+  | "val" { VAL }
+  | "ref" { REF }
+  | "array" { ARRAY }
+  | "break" { BREAK }
   | id { ID (Lexing.lexeme lexbuf) }
   | num { CONST (Lexing.lexeme lexbuf) }  
   | eof { EOF }

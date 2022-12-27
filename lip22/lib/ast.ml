@@ -13,21 +13,31 @@ type expr =
   | Mul of expr * expr
   | Eq of expr * expr
   | Leq of expr * expr
-  | Call of ide * expr     
-  | CallExec of cmd * expr (* Runtime only: c is the cmd being reduced, e is the return expr *)
-  | CallRet of expr        (* Runtime only: e is the return expr *)
-              
-and cmd =
-  | Skip
-  | Assign of string * expr
-  | Seq of cmd * cmd
-  | If of expr * cmd * cmd
-  | While of expr * cmd
+  | Arr of ide * int
 
-type decl =
-  | EmptyDecl
+type parFormal =
+    Val of int
+  | Ref of int
+
+type declVar =
+  | NullVar
+  | DSeq of declVar * declVar
   | IntVar of ide 
-  | Fun of ide * ide * cmd * expr
-  | DSeq of decl * decl
+  | Array of ide * int
 
-type prog = Prog of decl * cmd
+type cmd =
+  | Skip
+  | Break
+  | Assign of ide * expr
+  | ArrAssign of ide * int * expr
+  | Seq of cmd * cmd
+  | Repeat of cmd
+  | If of expr * cmd * cmd
+  | Block of declVar * cmd
+
+type declProc = 
+  | NullProc
+  | DSeqProc of declProc * declProc
+  | Proc of ide * parFormal * cmd
+
+type prog = Prog of declVar * declProc * cmd
