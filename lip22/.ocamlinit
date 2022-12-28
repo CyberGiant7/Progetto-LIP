@@ -1,2 +1,3 @@
 open Lip22Lib.Ast;;
 open Lip22Lib.Main;;
+open Lip22Lib.Prettyprint;;

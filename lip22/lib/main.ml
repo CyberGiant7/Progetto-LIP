@@ -1,7 +1,7 @@
 open Ast
 open Types
 
-let apply st x = match topenv st x with
+let apply (st : state) x = match topenv st x with
     IVar l -> getmem st l
   | _ -> failwith "apply error"
 
@@ -9,7 +9,7 @@ let parse (s : string) : prog =
   let lexbuf = Lexing.from_string s in
   let ast = Parser.prog Lexer.read lexbuf in
   ast
-
+(* 
 (******************************************************************************)
 (*                      Small-step semantics of expressions                   *)
 (******************************************************************************)
@@ -30,7 +30,8 @@ let is_val = function
   | Const _ -> true
   | _ -> false
 
-let rec trace1_expr st = function
+let rec trace1_expr st (e : expr) = match e with
+    True -> (True,st)
   | Var x -> (Const(apply st x), st)
   | Not(True) -> (False,st)
   | Not(False) -> (True,st)
@@ -56,7 +57,8 @@ let rec trace1_expr st = function
   | Leq(Const(n1),Const(n2)) -> if n1<=n2 then (True,st) else (False,st)
   | Leq(Const(n1),e2) -> let (e2',st') = trace1_expr st e2 in (Leq(Const(n1),e2'),st')
   | Leq(e1,e2) -> let (e1',st') = trace1_expr st e1 in (Leq(e1',e2),st')
-  | Call(f,Const(n)) -> (match (topenv st) f with
+  | 
+  (* | Call(f,Const(n)) -> (match (topenv st) f with
         IFun(x,c,er) ->
         let l = getloc st in
         let env' = bind (topenv st) x (IVar l) in
@@ -70,7 +72,7 @@ let rec trace1_expr st = function
     | Cmd(c',st') -> (CallExec(c',e),st'))
   | CallRet(Const(n)) -> let st' = (popenv st, getmem st, getloc st) in (Const(n),st')
   | CallRet(e) -> let (e',st') = trace1_expr st e in (CallRet(e'),st')
-  | _ -> raise NoRuleApplies
+  | _ -> raise NoRuleApplies *)
 
 and trace1_cmd = function
     St _ -> raise NoRuleApplies
@@ -86,7 +88,7 @@ and trace1_cmd = function
     | If(True,c1,_) -> Cmd(c1,st)
     | If(False,_,c2) -> Cmd(c2,st)
     | If(e,c1,c2) -> let (e',st') = trace1_expr st e in Cmd(If(e',c1,c2),st')
-    | While(e,c) -> Cmd(If(e,Seq(c,While(e,c)),Skip),st)
+    |
 
 let rec sem_decl (e,l) = function
     EmptyDecl -> (e,l)
@@ -111,4 +113,4 @@ let rec trace_rec n t =
 
 let trace n (Prog(d,c)) =
   let (e,l) = sem_decl (botenv,0) d
-  in trace_rec n (Cmd(c,([e],botmem,l)))
+  in trace_rec n (Cmd(c,([e],botmem,l)))  *)

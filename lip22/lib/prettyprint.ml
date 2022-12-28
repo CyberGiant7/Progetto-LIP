@@ -1,6 +1,6 @@
 open Ast
-open Types
-    
+(* open Types *)
+      
 let string_of_val = function
   | n -> string_of_int n
 
@@ -17,32 +17,51 @@ let rec string_of_expr = function
   | Mul(e1,e2) -> string_of_expr e1 ^ "*" ^ string_of_expr e2
   | Eq(e1,e2) -> string_of_expr e1 ^ "=" ^ string_of_expr e2
   | Leq(e1,e2) -> string_of_expr e1 ^ "<=" ^ string_of_expr e2
-  | Call(f,e) -> f ^ "(" ^ string_of_expr e ^ ")"
-  | CallExec(c,e) -> "exec{" ^ string_of_cmd c ^ "; ret " ^ string_of_expr e ^ "}"
-  | CallRet(e) -> "{ret " ^ string_of_expr e ^ "}"
+  | Arr(ide, i) -> ide ^ "[" ^ string_of_int i ^ "]"
+  
+let rec string_of_declvar = function
+  | NullVar -> ""
+  | IntVar(x) -> "int " ^ x
+  | DSeq(d1,d2) -> string_of_declvar d1 ^ "; " ^ string_of_declvar d2
+  | Array(ide, dim) -> "array " ^ ide ^ "[" ^ string_of_int dim ^ "]"
+
+let string_of_parformal = function
+    Val e -> "val " ^ string_of_expr e
+  | Ref e -> "ref " ^ string_of_expr e
+
+let rec string_of_paractual = function e -> string_of_expr e
 
 and string_of_cmd = function
     Skip -> "skip"
+  | Break -> "break"
   | Assign(x,e) -> x ^ ":=" ^ string_of_expr e
+  | ArrAssign(ide, i, e) -> ide ^ "[" ^ string_of_int i ^ "]" ^ ":=" ^ string_of_expr e
   | Seq(c1,c2) -> string_of_cmd c1 ^ "; " ^ string_of_cmd c2
+  | Repeat(c) -> "repeat " ^ string_of_cmd c ^ " forever"
   | If(e,c1,c2) -> "if " ^ string_of_expr e ^ " then " ^ string_of_cmd c1 ^ " else " ^ string_of_cmd c2
-  | While(e,c) -> "while " ^ string_of_expr e ^ " do " ^ string_of_cmd c
-          
-let rec string_of_decl = function
-  | EmptyDecl -> ""
-  | IntVar(x) -> "int " ^ x
-  | Fun(f,x,c,e) -> "fun " ^ f ^ "(" ^ x ^ ") {" ^ string_of_cmd c ^ "return " ^ string_of_expr e ^ "}"
-  | DSeq(d1,d2) -> string_of_decl d1 ^ ";" ^ string_of_decl d2
+  | Block(dv, c) -> "{" ^ string_of_declvar dv ^ string_of_cmd c ^ "̆}"
+  | CallPf(ide, e) -> ide ^ "(" ^ string_of_parformal e ^ ")"
+  | CallPa(ide, e) -> ide ^ "(" ^ string_of_paractual e ^ ")"
+
+let rec string_of_declproc = function
+  | NullProc -> ""
+  | Proc(ide, pf, c) -> "proc " ^ ide ^ "(" ^ string_of_parformal pf ^ ")" ^ "{ " ^ string_of_cmd c ^ " }"
+  | DSeqProc(p1,p2) -> string_of_declproc p1 ^ " " ^ string_of_declproc p2
+
+let string_of_prog = function
+  | Prog(dv, dp, c) -> string_of_declvar dv ^ " ; " ^ string_of_declproc dp ^ " ; " ^  string_of_cmd c
+(* 
 
 let string_of_env1 s x = match topenv s x with
   | IVar l -> string_of_int l ^ "/" ^ x
   | IFun(y,c,e) -> "fun(" ^ y ^ "){" ^ string_of_cmd c ^ "; return " ^ string_of_expr e ^ "}/" ^ x
-    
+     
 let rec string_of_env s = function
     [] -> ""
   | [x] -> (try string_of_env1 s x with _ -> "")
   | x::dom' -> (try string_of_env1 s x ^ "," ^ string_of_env s dom'
                 with _ -> string_of_env s dom')
+
 
 let string_of_mem1 (m,l) i =
   assert (i<l);
@@ -99,7 +118,6 @@ let rec vars_of_decl = function
   | Fun(f,x,c,e) -> union [x;f] (union (vars_of_cmd c) (vars_of_expr e))
   | DSeq(d1,d2) -> union (vars_of_decl d1) (vars_of_decl d2)               
 
-let vars_of_prog (Prog(d,_)) = vars_of_decl d
 
 let string_of_conf vars = function
     St st -> string_of_state st vars
@@ -113,4 +131,4 @@ let rec string_of_trace vars = function
 let rec last = function
     [] -> failwith "last on empty list"
   | [x] -> x
-  | _::l -> last l
+  | _::l -> last l  *)
