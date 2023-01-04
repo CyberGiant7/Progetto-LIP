@@ -33,7 +33,7 @@ let string_of_val_option = function
 
 let test_trace = 
   print_string (Sys.getcwd());
-  read_lines "../../../../../test/tests"
+  read_lines "../../../test/tests"
   |> List.map (fun x -> String.split_on_char ',' x;)
   |> List.map test_of_list
 
