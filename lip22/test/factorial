@@ -1,0 +1,16 @@
+int x;
+int res;
+
+proc fatt(ref n) {
+    int i;
+    res:=1;
+    i := 1;
+    repeat
+        if (i <= n) then 
+            res := res * i;
+            i := i + 1;
+        else break;
+    forever
+};
+x := 15;
+fatt(x);

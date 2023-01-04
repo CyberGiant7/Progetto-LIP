@@ -44,14 +44,17 @@ let rec unfoldProcList (dpList : declProc list) : declProc =
 %token EOF
 %token INT
 
+
 %left SEQ
-%nonassoc ELSE
 %left OR
 %left AND
 %nonassoc NOT
 %left EQ LEQ
 %left PLUS MINUS
 %left MUL
+%nonassoc RPAREN
+
+
 
 %start <prog> prog
 
@@ -75,22 +78,21 @@ expr:
   | e1=expr; LEQ; e2=expr { Leq(e1,e2) }
   | x = ID { Var(x) }
   | LPAREN; e = expr; RPAREN { e }
-  | ide = ID; LBRACK ; i = CONST; RBRACK { Arr(ide, int_of_string i) }
+  | ide = ID; LBRACK ; e = expr; RBRACK { Arr(ide, e) }
 ;
 
 cmd:
   | SKIP { Skip }
   | BREAK { Break }
+  | LPAREN; c = cmd; RPAREN { c }
+  | LBRACE; dv = declVar ; c = cmd; RBRACE { Block(dv, c) } 
   | IF; e0 = expr; THEN; c1 = cmd; ELSE; c2 = cmd; { If(e0,c1,c2) }
-  | x = ID; TAKES; e=expr; { Assign(x,e) }
+  | x = ID; TAKES; e = expr; { Assign(x,e) }
   | c1 = cmd; SEQ; c2 = cmd; { Seq(c1,c2) }
   | c1 = cmd; SEQ { c1 }
-  | LPAREN; c = cmd; RPAREN { c }
-  | ide = ID; LBRACK ; i = CONST; RBRACK; TAKES ; e=expr; { ArrAssign(ide, int_of_string i, e) }
-  | LBRACE; dv = declVar ; c = cmd; RBRACE { Block(dv, c) } 
+  | ide = ID; LBRACK ; i = CONST; RBRACK; TAKES ; e = expr; { ArrAssign(ide, int_of_string i, e) }
   | REPEAT ; c = cmd; FOREVER { Repeat(c) }
-  | ide = ID; LPAREN; pf = parFormal ; RPAREN { CallPf(ide, pf) }
-  | ide = ID; LPAREN; pa = parActual ; RPAREN { CallPa(ide, pa) }
+  | ide = ID; LPAREN; e = expr ; RPAREN { Call(ide, e) }
 
 declVar:
   | d1 = declVar; SEQ; d2 = declVar { DSeq(d1,d2) } 
@@ -104,11 +106,9 @@ declProc:
   | { NullProc }
 
 proc:
-  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; c = cmd ; RBRACE { Proc(ide, par, c) }
-
-parActual:
-  | pa = expr { pa } 
+  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; c = cmd; { Proc(ide, par, c) }
+ 
 
 parFormal:
-  | VAL; e = expr { Val(e)}
-  | REF; e = expr { Ref(e)}
+  | VAL; ide = ID { Val(ide)}
+  | REF; ide = ID { Ref(ide)}

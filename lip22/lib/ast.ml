@@ -13,13 +13,12 @@ type expr =
   | Mul of expr * expr
   | Eq of expr * expr
   | Leq of expr * expr
-  | Arr of ide * int
+  | Arr of ide * expr
 
 type parFormal =
-    Val of expr
-  | Ref of expr
+    Val of ide
+  | Ref of ide
 
-type parActual = expr
 
 type declVar =
   | NullVar
@@ -36,14 +35,13 @@ type cmd =
   | Repeat of cmd
   | If of expr * cmd * cmd
   | Block of declVar * cmd
-  | CallPf of ide * parFormal
-  | CallPa of ide * parActual
+  | Bl of cmd
+  | Call of ide * expr
 
 type declProc = 
   | NullProc
   | DSeqProc of declProc * declProc
   | Proc of ide * parFormal * cmd
-
 
 type prog = Prog of declVar * declProc * cmd
 
