@@ -1,6 +1,6 @@
 # Lip-Progetto 2022
 
-Studenti: 
+Studenti : 
 - Dessì Leonardo
 - Corda Erica
 - Dessì Matteo
