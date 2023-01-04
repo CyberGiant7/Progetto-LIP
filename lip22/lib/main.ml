@@ -130,14 +130,16 @@ let rec trace1_cmd = function
           St st' -> St (popenv st', getmem st', getgamma st', getloc st')
         | Cmd(c', st') -> Cmd(Bl(c'), st'))
     | Call (f, Const(n)) -> (match (topenv st) f with
-        IProc((Val x),c) -> Cmd(Bl(c), (bind (topenv st) x (IVar (getloc st))::(getenv st), bind (getmem st) (getloc st) n, Ok, (getloc st)+1))
+        IProc((Val x),Block(dv, c)) -> let st' = (bind (topenv st) x (IVar (getloc st))::(getenv st), bind (getmem st) (getloc st) n, Ok, (getloc st)+1) in
+        let (e,l) = sem_decl_var (topenv st', getloc st') dv in Cmd(Bl(c), (e::getenv st, getmem st', Ok, l))
           | _ -> raise (TypeError "Call of a non-function") 
           )
     | Call (f, Var(x)) -> (match (topenv st) f with
-        IProc((Ref y),c) -> (match (topenv st) x with
-            IVar l -> Cmd(Bl(c), (bind (topenv st) y (IVar l)::(getenv st), getmem st, Ok, getloc st))
+          IProc((Ref y),c) -> (match (topenv st) x with
+            IVar l -> Cmd(c, (bind (topenv st) y (IVar l)::(getenv st), getmem st, Ok, getloc st))
           | _ -> raise (TypeError "Call of a non-function") )
-        | _ -> raise (TypeError "Call of a non-function") 
+        | IProc((Val _),_) -> let (x',st') = trace1_expr st (Var(x)) in Cmd(Call(f, x'), st')
+        | _ -> raise (TypeError "Call of a non-function")
         )
     | Call (f, e) -> (let (e',st') = trace1_expr st e in Cmd(Call(f, e'),st'))
 
