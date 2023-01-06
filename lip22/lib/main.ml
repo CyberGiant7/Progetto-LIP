@@ -3,25 +3,26 @@ open Types
 
 
 exception TypeError of string
+exception SyntaxError of string
 exception UnboundVar of string
 exception UnboundMem of int
 exception NoRuleApplies
 exception IndexOutOfBounds
 
-let apply (st : state) x = match topenv st x with
+let apply st x = match topenv st x with
     IVar l -> getmem st l
-  | _ -> raise (TypeError "state not aplicable") 
+  | _ -> raise (TypeError "state not applicable") 
 ;;
 
-let apply_array (st : state) (ide : ide) (i : int) = match topenv st ide with
+let apply_array st ide i = match topenv st ide with
     IArr (loc, dim) -> if (i < dim) then getmem st (loc+i) else raise IndexOutOfBounds
-  | _ -> raise (TypeError "state not aplicable")
+  | _ -> raise (TypeError "state not applicable")
 
 let parse (s : string) : prog =
   let lexbuf = Lexing.from_string s in
   let ast = Parser.prog Lexer.read lexbuf in
   ast
- 
+
 (******************************************************************************)
 (*                      Small-step semantics of expressions                   *)
 (******************************************************************************)
@@ -30,43 +31,38 @@ let parse (s : string) : prog =
 
 let botenv = fun x -> raise (UnboundVar x)
 let botmem = fun l -> raise (UnboundMem l)
-    
+
 let bind f x v = fun y -> if y=x then v else f y
 
-let is_val = function
-    True -> true
-  | False -> true
-  | Const _ -> true
-  | _ -> false
 
-
-let rec sem_decl_var (e, loc) (dv : declVar) = match dv with
+let rec sem_decl_var (e, loc) dv = match dv with
     NullVar -> (e, loc)
   | IntVar(ide) -> let e' = bind e ide (IVar loc) in (e',loc+1)
-  | Array(ide, dim) -> let e' = bind e ide (IArr(loc, dim)) in (e',loc+dim)
+  | Array(ide, dim) when (dim > 0) -> let e' = bind e ide (IArr(loc, dim)) in (e',loc+dim)
+  | Array(_, _) -> raise (TypeError "Array dimension must be greater than 0")
   | DSeq(d1,d2) -> let (e',loc') = sem_decl_var (e,loc) d1 in
     sem_decl_var (e',loc') d2
 ;;
 
-let rec sem_decl_proc (e, loc) (dp : declProc) = match dp with
+let rec sem_decl_proc (e, loc) dp = match dp with
     NullProc -> (e, loc)
   | Proc(ide, pf, cmd) -> let e' = bind e ide (IProc (pf, cmd)) in (e',loc)
   | DSeqProc(d1,d2) -> let (e',loc') = sem_decl_proc (e,loc) d1 in
-  sem_decl_proc (e',loc') d2
+    sem_decl_proc (e',loc') d2
 ;;
 
 let get_iVar_val = function
     IVar l -> l
-  | _ -> raise (TypeError "")
+  | _ -> raise (TypeError "Getting int location from non int variable")
 ;;
 
 let get_iArr_val = function
-  IArr (loc, dim) -> (loc, dim)
-| _ -> raise (TypeError "")
+    IArr (loc, dim) -> (loc, dim)
+  | _ -> raise (TypeError "Getting array location from non array variable")
 ;;
 
 
- let rec trace1_expr st (e : expr) = match e with
+let rec trace1_expr st (e : expr) = match e with
     True -> (True,st)
   | False -> (False,st)
   | Var x -> (Const(apply st x), st)
@@ -105,18 +101,18 @@ let rec trace1_cmd = function
       Skip -> St st
     | Break -> St (getenv st, getmem st, Br, getloc st)
     | Assign(x,Const(n)) -> (match topenv st x with
-        IVar l -> St (getenv st, bind (getmem st) l n, getgamma st, getloc st)
-      | _ -> raise (TypeError "Assign to a non-variable"))
+          IVar l -> St (getenv st, bind (getmem st) l n, getgamma st, getloc st)
+        | _ -> raise (TypeError "Assign integer to a non-variable"))
     | Assign(x,e) -> let (e',st') = trace1_expr st e in Cmd(Assign(x,e'),st') 
     | ArrAssign(x, i, Const(n)) -> (match topenv st x with
           IArr (loc, dim) when (i < dim) -> St (getenv st, bind (getmem st) (loc + i) n, getgamma st, getloc st)
         | IArr (_, _) -> raise IndexOutOfBounds
-        | _ -> raise (TypeError "Assign to a non-variable"))
+        | _ -> raise (TypeError "Assign integer to a non-array variable"))
     | ArrAssign(x, i, e) -> let (e',st') = trace1_expr st e in Cmd(ArrAssign(x, i, e'),st')
     | Seq(c1, c2) -> (match trace1_cmd (Cmd(c1,st)) with
           St st' when (getgamma st' = Br) -> (match c2 with 
-            Repeat(_) -> St (getenv st', getmem st', Ok, getloc st')
-            | _ -> raise (TypeError "Break outside of a loop"))          
+              Repeat(_) -> St (getenv st', getmem st', Ok, getloc st')
+            | _ -> raise (SyntaxError "Break outside of a loop"))          
         | St st' -> Cmd(c2,st')
         | Cmd(c1',st1) -> Cmd(Seq(c1',c2),st1))
     | If(True,c1,_) -> Cmd(c1,st)
@@ -125,22 +121,24 @@ let rec trace1_cmd = function
     | If(e,c1,c2) -> let (e',st') = trace1_expr st e in Cmd(If(e',c1,c2),st')
     | Repeat(c) -> Cmd(Seq(c, Repeat(c)), st)
     | Block(dv, c) -> (match sem_decl_var (topenv st, getloc st) dv with
-        (e,l) -> Cmd(Bl(c), (e::(getenv st), getmem st, getgamma st, l)))
+          (e,l) -> Cmd(Bl(c), (e::(getenv st), getmem st, getgamma st, l)))
     | Bl(c) -> (match (trace1_cmd(Cmd(c, st))) with
           St st' -> St (popenv st', getmem st', getgamma st', getloc st')
         | Cmd(c', st') -> Cmd(Bl(c'), st'))
     | Call (f, Const(n)) -> (match (topenv st) f with
-        IProc((Val x),Block(dv, c)) -> let st' = (bind (topenv st) x (IVar (getloc st))::(getenv st), bind (getmem st) (getloc st) n, Ok, (getloc st)+1) in
-        let (e,l) = sem_decl_var (topenv st', getloc st') dv in Cmd(Bl(c), (e::getenv st, getmem st', Ok, l))
-          | _ -> raise (TypeError "Call of a non-function") 
-          )
+          IProc((Val x),Block(dv, c)) -> 
+          let st' = (bind (topenv st) x (IVar (getloc st))::(getenv st), bind (getmem st) (getloc st) n, Ok, (getloc st)+1) in
+          let (e,l) = sem_decl_var (topenv st', getloc st') dv in Cmd(Bl(c), (e::getenv st, getmem st', Ok, l))
+        | _ -> raise (TypeError "Call of a non-procedure") 
+      )
     | Call (f, Var(x)) -> (match (topenv st) f with
-          IProc((Ref y),c) -> (match (topenv st) x with
-            IVar l -> Cmd(c, (bind (topenv st) y (IVar l)::(getenv st), getmem st, Ok, getloc st))
-          | _ -> raise (TypeError "Call of a non-function") )
+          IProc((Ref y),Block(dv, c)) -> (match (topenv st) x with
+              IVar l -> let st' = (bind (topenv st) y (IVar l)::(getenv st), getmem st, Ok, getloc st) in
+              let (e,l) = sem_decl_var (topenv st', getloc st') dv in Cmd(Bl(c), (e::getenv st, getmem st', Ok, l))
+            | _ -> raise (TypeError "Call of a non-procedure"))
         | IProc((Val _),_) -> let (x',st') = trace1_expr st (Var(x)) in Cmd(Call(f, x'), st')
-        | _ -> raise (TypeError "Call of a non-function")
-        )
+        | _ -> raise (TypeError "Reference parameter should be a variable")
+      )
     | Call (f, e) -> (let (e',st') = trace1_expr st e in Cmd(Call(f, e'),st'))
 
 let rec trace_rec n t =
@@ -152,12 +150,12 @@ let rec trace_rec n t =
 
 
 (**********************************************************************
- trace : int -> prog -> conf list
+   trace : int -> prog -> conf list
 
- Usage: trace n c performs n steps of the small-step semantics
+   Usage: trace n c performs n steps of the small-step semantics
  **********************************************************************)
 
- let trace n (Prog(dv, dp, c)) =
+let trace n (Prog(dv, dp, c)) =
   let (e,l) = sem_decl_var (botenv,0) dv
   in let (e', l') = sem_decl_proc (e,l) dp 
-in trace_rec n (Cmd(c,([e'],botmem, Ok,l'))) 
+  in trace_rec n (Cmd(c,([e'],botmem, Ok,l'))) 

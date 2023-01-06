@@ -18,7 +18,7 @@ let rec string_of_expr = function
   | Eq(e1,e2) -> string_of_expr e1 ^ "=" ^ string_of_expr e2
   | Leq(e1,e2) -> string_of_expr e1 ^ "<=" ^ string_of_expr e2
   | Arr(ide, e) -> ide ^ "[" ^ string_of_expr e ^ "]"
-  
+
 let rec string_of_declvar = function
   | NullVar -> ""
   | IntVar(x) -> "int " ^ x
@@ -76,11 +76,11 @@ let string_of_mem (m,l) =
 let rec getlocs e = function
     [] -> []
   | x::dom -> try (match e x with
-    | IVar l -> l::(getlocs e dom)
-    | IArr(l, _) -> l::(getlocs e dom)
-    | IProc(_,_) -> [])
+      | IVar l -> l::(getlocs e dom)
+      | IArr(l, _) -> l::(getlocs e dom)
+      | IProc(_,_) -> [])
     with _ -> getlocs e dom
-                   
+
 let string_of_state st dom =
   "[" ^ string_of_env st dom ^ "], " ^
   "[" ^ string_of_mem (getmem st,getloc st) ^ "]" ^ ", " ^
@@ -136,12 +136,12 @@ let rec vars_of_declproc = function
   | DSeqProc(p1,p2) -> union (vars_of_declproc p1) (vars_of_declproc p2)
 
 let vars_of_prog = function
-  Prog(dv, dp, c) -> union (vars_of_declvar dv) (union (vars_of_declproc dp) (vars_of_cmd c))
+    Prog(dv, dp, c) -> union (vars_of_declvar dv) (union (vars_of_declproc dp) (vars_of_cmd c))
 
 let string_of_conf vars = function
     St st -> string_of_state st vars
   | Cmd(c,st) -> "<" ^ string_of_cmd c ^ ", " ^ string_of_state st vars ^ ">"
-  
+
 
 let rec string_of_trace vars = function
     [] -> ""
@@ -153,11 +153,12 @@ let rec last = function
   | [x] -> x
   | _::l -> last l 
 
-  let print_trace prog n = 
-    let pprog = parse prog in 
-    let t = trace n pprog in 
-    let vars = vars_of_prog pprog in 
-    match t with
+
+let print_trace prog n = 
+  let pprog = parse prog in 
+  let t = trace n pprog in 
+  let vars = vars_of_prog pprog in 
+  match t with
   | Cmd(c,s)::l -> print_endline (string_of_trace vars (Cmd(c,s)::l))
   | _ -> failwith "print_trace on empty trace"
 ;;
