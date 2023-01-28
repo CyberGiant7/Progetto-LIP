@@ -1,11 +1,5 @@
 %{
 open Ast
-
-let rec unfoldProcList (dpList : declProc list) : declProc =
-  match dpList with
-  | [] -> NullProc
-  | [dp] -> dp
-  | dp1 :: dp2 :: t -> unfoldProcList ((DSeqProc (dp1, dp2)) :: t)
 %}
 
 %token TRUE
@@ -45,23 +39,35 @@ let rec unfoldProcList (dpList : declProc list) : declProc =
 %token INT
 
 
-%left SEQ
 %left OR
 %left AND
 %nonassoc NOT
 %left EQ LEQ
 %left PLUS MINUS
 %left MUL
-%nonassoc RPAREN
 
+%left SEQ 
+%left ELSE
+%left INT ARRAY PROC 
+%left DECVARLSEQ DECLPROCSEQ 
 
 
 %start <prog> prog
 
+%type <expr> expr
+%type <cmd> cmd
+%type <declVar> declVar
+%type <declProc> declProc
+%type <parFormal> parFormal
+
+
 %%
 
 prog:
-  | dV=declVar;  dP = declProc; c = cmd; EOF { Prog(dV, dP, c) }
+  | dV=declVar; dP = declProc; SEQ ; c = cmd; EOF { Prog(dV, dP, c) }
+  | dP = declProc; SEQ ; c = cmd; EOF { Prog(NullVar, dP, c) }
+  | dV=declVar; c = cmd; EOF { Prog(dV, NullProc, c) }
+  | c = cmd; EOF { Prog(NullVar, NullProc, c) }
 ;
 
 expr:
@@ -84,29 +90,25 @@ expr:
 cmd:
   | SKIP { Skip }
   | BREAK { Break }
-  | LPAREN; c = cmd; RPAREN { c }
-  | LBRACE; dv = declVar ; c = cmd; RBRACE { Block(dv, c) } 
-  | IF; e0 = expr; THEN; c1 = cmd; ELSE; c2 = cmd; { If(e0,c1,c2) }
-  | x = ID; TAKES; e = expr; { Assign(x,e) }
-  | c1 = cmd; SEQ; c2 = cmd; { Seq(c1,c2) }
-  | c1 = cmd; SEQ { c1 }
-  | ide = ID; LBRACK ; i = CONST; RBRACK; TAKES ; e = expr; { ArrAssign(ide, int_of_string i, e) }
-  | REPEAT ; c = cmd; FOREVER { Repeat(c) }
+  | ide = ID; LBRACK ; i = CONST; RBRACK; TAKES ; e = expr { ArrAssign(ide, int_of_string i, e) }
   | ide = ID; LPAREN; e = expr ; RPAREN { Call(ide, e) }
+  | IF; e0 = expr; THEN; c1 = cmd; ELSE; c2 = cmd; { If(e0,c1,c2) }
+  | LBRACE; dv = declVar ; c = cmd; RBRACE { Block(dv, c) } 
+  | x = ID; TAKES; e = expr { Assign(x,e) }
+  | c1 = cmd; SEQ; c2 = cmd; { Seq(c1,c2) }
+  | LPAREN; c = cmd; RPAREN { c }
+  | REPEAT ; c = cmd; FOREVER ; { Repeat(c) }
 
 declVar:
-  | d1 = declVar; SEQ; d2 = declVar { DSeq(d1,d2) } 
-  | INT ; ide = ID { IntVar(ide) }
-  | ARRAY; ide = ID; LBRACK; dim = CONST; RBRACK {Array (ide, int_of_string dim)}
-  | d1 = declVar; SEQ { d1 }
-  | { NullVar }
+  | INT ; ide = ID; SEQ { IntVar(ide) }
+  | ARRAY; ide = ID; LBRACK; dim = CONST; RBRACK; SEQ {Array (ide, int_of_string dim)}
+  | d1 = declVar; d2 = declVar { DSeq(d1,d2) } %prec DECVARLSEQ
 
 declProc:
-  | l = nonempty_list(proc); SEQ { unfoldProcList l }
-  | { NullProc }
+  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; dv = declVar ; c = cmd ;RBRACE { Proc(ide, par, Block(dv, c)) }
+  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; c = cmd ; RBRACE { Proc(ide, par, Block(NullVar, c)) }
+  | d1 = declProc; d2 = declProc { DSeqProc(d1,d2) } %prec DECLPROCSEQ
 
-proc:
-  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; c = cmd; { Proc(ide, par, c) }
  
 
 parFormal:
