@@ -60,7 +60,6 @@ open Ast
 %type <declProc> declProc
 %type <parFormal> parFormal
 
-
 %%
 
 prog:
@@ -108,8 +107,6 @@ declProc:
   | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; dv = declVar ; c = cmd ;RBRACE { Proc(ide, par, Block(dv, c)) }
   | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; c = cmd ; RBRACE { Proc(ide, par, Block(NullVar, c)) }
   | d1 = declProc; d2 = declProc { DSeqProc(d1,d2) } %prec DECLPROCSEQ
-
- 
 
 parFormal:
   | VAL; ide = ID { Val(ide)}

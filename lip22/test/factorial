@@ -8,9 +8,9 @@ proc fatt(ref n) {
     repeat
         if (i <= n) then 
             res := res * i;
-            i := i + 1;
-        else break;
+            i := i + 1
+        else break
     forever
 };
 x := 15;
-fatt(x);
+fatt(x)

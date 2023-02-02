@@ -50,7 +50,6 @@ let string_of_prog = function
   | Prog(dv, dp, c) -> string_of_declvar dv ^ " ; " ^ string_of_declproc dp ^ " ; " ^  string_of_cmd c
 ;;  
 
-
 let string_of_env1 s x = match topenv s x with
   | IVar l -> string_of_int l ^ "/" ^ x
   | IArr(l, dim) -> string_of_int l ^ "/" ^ x ^ "[" ^ string_of_int dim ^ "]"
@@ -68,6 +67,10 @@ let string_of_mem1 (m,l) i =
   assert (i<l);
   string_of_int (m i) ^ "/" ^ string_of_int i
 
+let string_of_gamma state = match (getgamma state) with
+  | Ok  -> "Ok"
+  | Br -> "Br"
+
 let rec range a b = if b<a then [] else a::(range (a+1) b);;
 
 let string_of_mem (m,l) =
@@ -83,7 +86,8 @@ let rec getlocs e = function
 
 let string_of_state st dom =
   "[" ^ string_of_env st dom ^ "], " ^
-  "[" ^ string_of_mem (getmem st,getloc st) ^ "]" ^ ", " ^
+  "[" ^ string_of_mem (getmem st, getloc st) ^ "]" ^ ", " ^ 
+  string_of_gamma st ^ ", "  ^
   string_of_int (getloc st)
 
 let rec union l1 l2 = match l1 with
