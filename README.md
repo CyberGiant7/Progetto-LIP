@@ -66,8 +66,8 @@ Di seguito, per ogni categoria sintattica, vengono date le regole della semantic
 - infine con $\gamma$ abbiamo un **flag** che ha due valori: 
     - <tt>br</tt> 
     - <tt>ok</tt>. 
-- $\rho\bot$ è la funzione ambiente ovunque indefinita
-- $\sigma\bot$ è la memoria ovunque indefinita. 
+- $\rho_\bot$ è la funzione ambiente ovunque indefinita
+- $\sigma_\bot$ è la memoria ovunque indefinita. 
 - $\ell$ è una locazione (un intero positivo) e indica la prima locazione libera
 - l’aggiornamento della locazione libera
 è indicato con $\leftarrow$.
