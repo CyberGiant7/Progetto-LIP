@@ -1,10 +1,10 @@
 # Lip-Progetto 2022
 
 Studenti: 
-- Dessì Leonardo
-- Corda Erica
-- Dessì Matteo
-- Giuffrida Simone
+- Dessì Leonardo  60/61/65959
+- Corda Erica 60/61/66071
+- Dessì Matteo 60/61/65917
+- Giuffrida Simone 60/61/65980
 
 # Il linguaggio Repeat
 Il linguaggio di programmazione di cui dovrete scrivere l’interprete, il lexer ed il parser è descritto di seguito.
