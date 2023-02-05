@@ -23,7 +23,7 @@ type mem = loc -> memval
 type gamma = Ok | Br 
 
 (* state is composed by the environment stack, the memory, the gamma and the current location *)
-type state = env list * mem * gamma *  loc
+type state = env list * mem * gamma * loc
 
 
 (* this function returns enviroment in the top of the stack *)

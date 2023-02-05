@@ -33,9 +33,10 @@ let rec string_of_cmd = function
     Skip -> "skip"
   | Break -> "break"
   | Assign(x,e) -> x ^ ":=" ^ string_of_expr e
-  | ArrAssign(ide, i, e) -> ide ^ "[" ^ string_of_int i ^ "]" ^ ":=" ^ string_of_expr e
+  | ArrAssign(ide, i, e) -> ide ^ "[" ^ string_of_expr i ^ "]" ^ ":=" ^ string_of_expr e
   | Seq(c1,c2) -> string_of_cmd c1 ^ "; " ^ string_of_cmd c2
   | Repeat(c) -> "repeat " ^ string_of_cmd c ^ " forever"
+  | Rep(c) -> "rep " ^ string_of_cmd c
   | If(e,c1,c2) -> "if " ^ string_of_expr e ^ " then " ^ string_of_cmd c1 ^ " else " ^ string_of_cmd c2
   | Block(dv, c) -> "{" ^ string_of_declvar dv ^ string_of_cmd c ^ "̆}"
   | Bl(c) -> "{" ^ string_of_cmd c ^ "̆}"
@@ -124,9 +125,10 @@ and vars_of_cmd = function
   | Block(dv, c) -> union (vars_of_declvar dv) (vars_of_cmd c)
   | Call(ide, e) -> union [ide] (vars_of_expr e)
   | Repeat(c) -> vars_of_cmd c
+  | Rep(c) -> vars_of_cmd c
   | Break -> []
   | Bl(c) -> vars_of_cmd c
-  | ArrAssign(ide, i, e) -> union [ide] (union (vars_of_expr e) (vars_of_expr (Const i)))
+  | ArrAssign(ide, i, e) -> union [ide] (union (vars_of_expr e) (vars_of_expr i))
 ;;
 
 let vars_of_parformal = function

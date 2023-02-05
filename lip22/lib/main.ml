@@ -2,14 +2,14 @@ open Ast
 open Types
 
 (* function that return the value of a variable *)
-let apply st x = match topenv st x with
-    IVar l -> getmem st l
+let apply st x = match (topenv st) x with
+    IVar l -> (getmem st) l
   | _ -> raise (TypeError "state not applicable") 
 ;;
 
 (* function that return the value of an array at index i *)
-let apply_array st ide i = match topenv st ide with
-    IArr (loc, dim) -> if (i < dim) then getmem st (loc+i) else raise IndexOutOfBounds
+let apply_array st ide i = match (topenv st) ide with
+    IArr (loc, dim) -> if (i < dim) then (getmem st) (loc+i) else raise IndexOutOfBounds
   | _ -> raise (TypeError "state not applicable")
 
 (* parsing function*)
@@ -81,35 +81,56 @@ let rec trace1_expr st (e : expr) = match e with
   | _ -> raise NoRuleApplies  
 ;;
 
+(* function to check if break is inside a repeat or rep *)
+let rec checkBreakIsInsideRep c insideFlag = match c with
+  | Break -> insideFlag
+  | Seq(c1, c2) -> if (checkBreakIsInsideRep c1 insideFlag) then (checkBreakIsInsideRep c2 insideFlag) else false
+  | If(_,c1,c2) -> (checkBreakIsInsideRep c1 insideFlag) && (checkBreakIsInsideRep c2 insideFlag)
+  | Repeat(c) -> checkBreakIsInsideRep c true
+  | Rep(c) -> checkBreakIsInsideRep c true
+  | Block(_,c) -> checkBreakIsInsideRep c insideFlag
+  | Bl(c) -> checkBreakIsInsideRep c insideFlag
+  | _ -> true
+;;
 
 (******************************************************************************)
 (*                      Small-step semantics of commands                      *)
 (******************************************************************************)
 let rec trace1_cmd = function
-    St _ -> raise NoRuleApplies
-  | Cmd(c,st) -> match c with
+    St _ -> raise NoRuleApplies 
+  | Cmd(c,st)  -> match c with
       Skip -> St st
     | Break -> St (getenv st, getmem st, Br, getloc st) 
     | Assign(x,Const(n)) -> (match topenv st x with                             (* x := n *)
           IVar l -> St (getenv st, bind (getmem st) l n, getgamma st, getloc st)
         | _ -> raise (TypeError "Assign integer to a non-variable"))
     | Assign(x,e) -> let (e',st') = trace1_expr st e in Cmd(Assign(x,e'),st')   (* x := e *)
-    | ArrAssign(x, i, Const(n)) -> (match topenv st x with                      (* x[i] := n *)
+    | ArrAssign(x, Const(i), Const(n)) -> (match topenv st x with               (* x[i] := n *)
           IArr (loc, dim) when (i < dim) -> St (getenv st, bind (getmem st) (loc + i) n, getgamma st, getloc st)
         | IArr (_, _) -> raise IndexOutOfBounds                                 (* x[i] := n, when i >= dim *)
         | _ -> raise (TypeError "Assign integer to a non-array variable"))      (* x[i] := n, when x is not an array *)
+    | ArrAssign(x, e, Const(n)) -> let (e',st') = trace1_expr st e in Cmd(ArrAssign(x, e', Const(n)),st')   (* x[e] := n *)
     | ArrAssign(x, i, e) -> let (e',st') = trace1_expr st e in Cmd(ArrAssign(x, i, e'),st') (* x[i] := e when e is an expression *)
     | Seq(c1, c2) -> (match trace1_cmd (Cmd(c1,st)) with                        (* c1; c2 *)
-          St st' when (getgamma st' = Br) -> (match c2 with                     (* c1; break *)
-              Repeat(_) -> St (getenv st', getmem st', Ok, getloc st')          (* break in a repeat loop *)
-            | _ -> raise (SyntaxError "Break outside of a loop"))               (* break outside of a loop *)
+          St st' when (getgamma st' = Br) -> (St(getenv st', getmem st', Br, getloc st')) (* break*)
         | St st' -> Cmd(c2,st')                                                 (* c1; c2 *)
         | Cmd(c1',st1) -> Cmd(Seq(c1',c2),st1))                                 (* c1'; c2 *)
     | If(True,c1,_) -> Cmd(c1,st)                                               (* if true then c1 else c2 *)
     | If(False,_,c2) -> Cmd(c2,st)                                              (* if false then c1 else c2 *)
     | If(Const(_),_,_) -> raise (TypeError "If with a non-boolean condition")   (* if n then c1 else c2 when n is an integer *)
     | If(e,c1,c2) -> let (e',st') = trace1_expr st e in Cmd(If(e',c1,c2),st')   (* if e then c1 else c2 when e is an expression *)
-    | Repeat(c) -> Cmd(Seq(c, Repeat(c)), st)                                   (* repeat c forever *)
+    | Repeat(c) -> (match trace1_cmd (Cmd(c, st)) with
+          St st' when (getgamma st' = Br) -> St (getenv st', getmem st', Ok, getloc st')  (* break in a repeat loop *)
+        | St st' -> Cmd(Repeat(c),st')                                          (* repeat c *)
+        | Cmd(c',st') -> Cmd(Rep(Seq (c', Repeat(c))),st'))
+    | Rep(Repeat c) -> (match trace1_cmd (Cmd(c, st)) with
+          St st' when (getgamma st' = Br) -> St (getenv st', getmem st', Ok, getloc st')  (* break in a repeat loop *)
+        | St st' -> Cmd(Repeat(c),st')                                          (* repeat c *)
+        | Cmd(c',st') -> Cmd(Rep(Seq (c', Repeat(c))),st'))
+    | Rep(c) -> (match trace1_cmd (Cmd(c, st)) with
+          St st' when (getgamma st' = Br) -> St (getenv st', getmem st', Ok, getloc st')  (* break in a repeat loop *)
+        | St st' -> St st'                                                      (* repeat c *)
+        | Cmd(c',st') -> Cmd(Rep(c'),st'))                                      (* repeat c' *)             
     | Block(dv, c) -> (match evalDeclVar (topenv st, getloc st) dv with         (* {dv} c *)  
           (e,l) -> Cmd(Bl(c), (e::(getenv st), getmem st, getgamma st, l)))     (* push the new environment *)  
     | Bl(c) -> (match (trace1_cmd(Cmd(c, st))) with                             (* evaluate command inside block until end *)
@@ -117,16 +138,16 @@ let rec trace1_cmd = function
         | Cmd(c', st') -> Cmd(Bl(c'), st'))                                     (* continue evaluating the block until end *)
     | Call (f, Const(n)) -> (match (topenv st) f with                           (* f(n) *)
           IProc((Val x), Block(dv, c)) ->                                       (* procedure with a parameter passed by value*)
-          let st' = (bind (topenv st) x (IVar (getloc st))::(getenv st), bind (getmem st) (getloc st) n, Ok, (getloc st)+1) in  (* creating a state with parameter defined *)
+          let st' = (bind (topenv st) x (IVar (getloc st))::(getenv st), bind (getmem st) (getloc st) n, getgamma st, (getloc st)+1) in  (* creating a state with parameter defined *)
           let (e,l) = evalDeclVar (topenv st', getloc st') dv in                (* evaluate the declaration variables *)
-          Cmd(Bl(c), (e::getenv st, getmem st', Ok, l))                         (* push the new environment *)
+          Cmd(Bl(c), (e::getenv st, getmem st', getgamma st, l))                (* push the new environment *)
         | _ -> raise (TypeError "Call of a non-procedure")                      (* f(n) when f is not a procedure *)
       )
     | Call (f, Var(x)) -> (match (topenv st) f with
         | IProc((Ref y),Block(dv, c)) -> (match (topenv st) x with              (* procedure with a parameter passed by reference *)
-            | IVar l -> (let st' = (bind (topenv st) y (IVar l)::(getenv st), getmem st, Ok, getloc st) in   (* creating a state with parameter defined *)
-              let (e,l) = evalDeclVar (topenv st', getloc st') dv in            (* evaluate the declaration variables *)
-              Cmd(Bl(c), (e::getenv st, getmem st', Ok, l)))                    (* push the new environment *)
+            | IVar l -> (let st' = (bind (topenv st) y (IVar l)::(getenv st), getmem st, getgamma st, getloc st) in   (* creating a state with parameter defined *)
+                         let (e,l) = evalDeclVar (topenv st', getloc st') dv in            (* evaluate the declaration variables *)
+                         Cmd(Bl(c), (e::getenv st, getmem st', getgamma st, l)))           (* push the new environment *)
             | _ -> raise (TypeError "Reference parameter should be a variable"))(* f(x) when x is not a variable *)
         | IProc((Val _),_) -> let (x',st') = trace1_expr st (Var(x)) in Cmd(Call(f, x'), st') (* if the parameter is passed by value, evaluate it *)
         | _ -> raise (TypeError "Call of a non-procedure")                      (* f(x) when f is not a procedure *)
@@ -136,8 +157,12 @@ let rec trace1_cmd = function
 let rec trace_rec n t =
   if n <= 0 then [t]
   else try
-      let t' = trace1_cmd t
-      in t::(trace_rec (n-1) t')
+      if (match t with
+          | St _ -> true
+          | Cmd(c,_) -> checkBreakIsInsideRep c false) then
+        (let t' = trace1_cmd t
+         in t::(trace_rec (n-1) t'))
+      else raise (TypeError "Break is not inside a repeat" )
     with NoRuleApplies -> [t] 
 
 let botenv = fun x -> raise (UnboundVar x)
@@ -149,6 +174,7 @@ let botmem = fun l -> raise (UnboundMem l)
    Usage: trace n c performs n steps of the small-step semantics
  **********************************************************************)
 let trace n (Prog(dv, dp, c)) =
-  let (e,l) = evalDeclVar (botenv,0) dv
-  in let (e', l') = evalDeclProc (e,l) dp 
-  in trace_rec n (Cmd(c,([e'], botmem, Ok, l'))) 
+  if (not(checkBreakIsInsideRep c false)) then raise (TypeError "Break is not inside a repeat")
+  else let (e,l) = evalDeclVar (botenv,0) dv
+    in let (e', l') = evalDeclProc (e,l) dp 
+    in trace_rec n (Cmd(c,([e'], botmem, Ok, l'))) 

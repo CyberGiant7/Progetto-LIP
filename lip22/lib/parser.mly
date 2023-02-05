@@ -89,24 +89,25 @@ expr:
 cmd:
   | SKIP { Skip }
   | BREAK { Break }
-  | ide = ID; LBRACK ; i = CONST; RBRACK; TAKES ; e = expr { ArrAssign(ide, int_of_string i, e) }
+  | ide = ID; LBRACK ; e1 = expr; RBRACK; TAKES ; e2 = expr { ArrAssign(ide, e1, e2) }
   | ide = ID; LPAREN; e = expr ; RPAREN { Call(ide, e) }
   | IF; e0 = expr; THEN; c1 = cmd; ELSE; c2 = cmd; { If(e0,c1,c2) }
   | LBRACE; dv = declVar ; c = cmd; RBRACE { Block(dv, c) } 
+  | LBRACE; c = cmd; RBRACE { Block(NullVar, c) }
   | x = ID; TAKES; e = expr { Assign(x,e) }
   | c1 = cmd; SEQ; c2 = cmd; { Seq(c1,c2) }
   | LPAREN; c = cmd; RPAREN { c }
   | REPEAT ; c = cmd; FOREVER ; { Repeat(c) }
 
 declVar:
+  | d1 = declVar; d2 = declVar { DSeq(d1,d2) } %prec DECVARLSEQ
   | INT ; ide = ID; SEQ { IntVar(ide) }
   | ARRAY; ide = ID; LBRACK; dim = CONST; RBRACK; SEQ {Array (ide, int_of_string dim)}
-  | d1 = declVar; d2 = declVar { DSeq(d1,d2) } %prec DECVARLSEQ
 
 declProc:
-  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; dv = declVar ; c = cmd ;RBRACE { Proc(ide, par, Block(dv, c)) }
-  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; c = cmd ; RBRACE { Proc(ide, par, Block(NullVar, c)) }
   | d1 = declProc; d2 = declProc { DSeqProc(d1,d2) } %prec DECLPROCSEQ
+  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; dv = declVar ; c = cmd ; RBRACE { Proc(ide, par, Block(dv, c)) }
+  | PROC; ide = ID; LPAREN; par = parFormal; RPAREN; LBRACE; c = cmd ; RBRACE { Proc(ide, par, Block(NullVar, c)) }
 
 parFormal:
   | VAL; ide = ID { Val(ide)}

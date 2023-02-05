@@ -30,12 +30,13 @@ type cmd =
   | Skip
   | Break
   | Assign of ide * expr
-  | ArrAssign of ide * int * expr
+  | ArrAssign of ide * expr * expr
   | Seq of cmd * cmd
   | Repeat of cmd
+  | Rep of cmd (* only at runtime *)
   | If of expr * cmd * cmd
   | Block of declVar * cmd
-  | Bl of cmd
+  | Bl of cmd  (* only at runtime *)
   | Call of ide * expr
 
 type declProc = 
